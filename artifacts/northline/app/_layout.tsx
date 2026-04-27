@@ -10,6 +10,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect } from "react";
+import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -18,6 +19,16 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BlocksProvider } from "@/contexts/BlocksContext";
 
 SplashScreen.preventAutoHideAsync();
+
+if (Platform.OS === "web" && typeof document !== "undefined") {
+  const style = document.createElement("style");
+  style.innerHTML = `
+    ::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+    * { scrollbar-width: none !important; -ms-overflow-style: none !important; }
+    html, body { overflow-x: hidden; }
+  `;
+  document.head.appendChild(style);
+}
 
 const queryClient = new QueryClient();
 
