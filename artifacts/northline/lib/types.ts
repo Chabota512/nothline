@@ -9,14 +9,13 @@ export type BuildCategory =
 export const BUILD_CATEGORIES: {
   id: BuildCategory;
   label: string;
-  verb: string;
 }[] = [
-  { id: "skill", label: "Skill", verb: "sharpened a skill" },
-  { id: "body", label: "Body", verb: "invested in your body" },
-  { id: "wealth", label: "Wealth", verb: "built future wealth" },
-  { id: "people", label: "People", verb: "tended relationships" },
-  { id: "mind", label: "Mind", verb: "restored your mind" },
-  { id: "drift", label: "Drift", verb: "drifted" },
+  { id: "skill", label: "Skill" },
+  { id: "body", label: "Body" },
+  { id: "wealth", label: "Wealth" },
+  { id: "people", label: "People" },
+  { id: "mind", label: "Mind" },
+  { id: "drift", label: "Leisure" },
 ];
 
 export type TimeBlock = {
@@ -40,3 +39,15 @@ export type Reflection = {
   energy?: 1 | 2 | 3 | 4 | 5;
   createdAt: number;
 };
+
+export type Settings = {
+  reminderEnabled: boolean;
+  reminderIntervalMinutes: number;
+};
+
+export const DEFAULT_SETTINGS: Settings = {
+  reminderEnabled: false,
+  reminderIntervalMinutes: 40,
+};
+
+export const REMINDER_INTERVAL_OPTIONS = [20, 30, 40, 60, 90];

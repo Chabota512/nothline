@@ -127,7 +127,7 @@ export function ReflectionSheet({
                 fontSize: 15,
               }}
             >
-              Evening reflection
+              Day notes
             </Text>
             <Pressable onPress={handleSave} hitSlop={10}>
               <Text
@@ -149,12 +149,12 @@ export function ReflectionSheet({
           >
             <View style={styles.section}>
               <Text style={[styles.label, { color: c.mutedForeground }]}>
-                WHAT STOLE TIME?
+                NOTES
               </Text>
               <TextInput
                 value={stoleTime}
                 onChangeText={setStoleTime}
-                placeholder="A name for the thief, no judgement"
+                placeholder="Anything you want to remember about today"
                 placeholderTextColor={c.mutedForeground}
                 multiline
                 style={{
@@ -175,12 +175,12 @@ export function ReflectionSheet({
 
             <View style={styles.section}>
               <Text style={[styles.label, { color: c.mutedForeground }]}>
-                WHAT WORKED?
+                WORTH KEEPING
               </Text>
               <TextInput
                 value={worked}
                 onChangeText={setWorked}
-                placeholder="A small win to remember"
+                placeholder="A small thing to note for later"
                 placeholderTextColor={c.mutedForeground}
                 multiline
                 style={{
@@ -201,7 +201,7 @@ export function ReflectionSheet({
 
             <View style={styles.section}>
               <Text style={[styles.label, { color: c.mutedForeground }]}>
-                HOW DID TODAY FEEL?
+                ENERGY
               </Text>
               <View
                 style={{

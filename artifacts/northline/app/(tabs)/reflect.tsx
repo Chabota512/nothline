@@ -1,6 +1,13 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyState } from "@/components/EmptyState";
@@ -47,11 +54,11 @@ export default function ReflectScreen() {
       >
         <Header
           kicker="Reflect"
-          title="Honest, not heavy"
+          title="Close out the day"
           subtitle={todayLabel(now)}
         />
 
-        {/* Reflection summary or prompt */}
+        {/* Day notes */}
         <Pressable onPress={() => setReflectOpen(true)}>
           <View
             style={[
@@ -74,7 +81,7 @@ export default function ReflectScreen() {
                   gap: 8,
                 }}
               >
-                <Feather name="moon" size={14} color={c.primary} />
+                <Feather name="edit-3" size={14} color={c.primary} />
                 <Text
                   style={{
                     color: c.mutedForeground,
@@ -84,7 +91,7 @@ export default function ReflectScreen() {
                     textTransform: "uppercase",
                   }}
                 >
-                  Evening reflection
+                  Day notes
                 </Text>
               </View>
               <Feather
@@ -98,7 +105,7 @@ export default function ReflectScreen() {
               <View style={{ gap: 10, marginTop: 4 }}>
                 {reflection.stoleTime ? (
                   <ReflectLine
-                    label="Stole time"
+                    label="Notes"
                     value={reflection.stoleTime}
                     color={c.foreground}
                     muted={c.mutedForeground}
@@ -106,7 +113,7 @@ export default function ReflectScreen() {
                 ) : null}
                 {reflection.worked ? (
                   <ReflectLine
-                    label="Worked"
+                    label="Worth keeping"
                     value={reflection.worked}
                     color={c.foreground}
                     muted={c.mutedForeground}
@@ -161,7 +168,7 @@ export default function ReflectScreen() {
                   marginTop: 4,
                 }}
               >
-                Pause for a minute. What stole your time? What worked?
+                Anything you want to note about today?
               </Text>
             )}
           </View>
@@ -187,7 +194,7 @@ export default function ReflectScreen() {
                 textTransform: "uppercase",
               }}
             >
-              Gaps to remember
+              Untracked stretches
             </Text>
             <Text
               style={{
@@ -203,8 +210,8 @@ export default function ReflectScreen() {
           {gaps.length === 0 ? (
             <EmptyState
               icon="check"
-              title="The day is accounted for"
-              body="No gaps thirty minutes or longer. Quietly impressive."
+              title="The day is fully logged"
+              body="No stretches longer than thirty minutes are missing."
             />
           ) : (
             <>
@@ -218,7 +225,8 @@ export default function ReflectScreen() {
                   lineHeight: 19,
                 }}
               >
-                Tap a gap to fill it. Memory is fragile — capture roughly, no need to be perfect.
+                Tap a gap to fill it. A rough estimate is fine — memory fades
+                fast.
               </Text>
               {gaps.map((g) => (
                 <GapItem
@@ -241,7 +249,7 @@ export default function ReflectScreen() {
         initialStart={logRange?.start}
         initialEnd={logRange?.end}
         isReconstructed
-        title="Reconstruct this stretch"
+        title="Fill this stretch"
         onClose={() => {
           setLogOpen(false);
           setLogRange(null);

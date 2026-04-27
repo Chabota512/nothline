@@ -1,12 +1,13 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
-import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyState } from "@/components/EmptyState";
 import { FloatingLogButton } from "@/components/FloatingLogButton";
 import { Header } from "@/components/Header";
 import { QuickLogSheet } from "@/components/QuickLogSheet";
+import { SettingsSheet } from "@/components/SettingsSheet";
 import { TimelineBlockView } from "@/components/TimelineBlockView";
 import { useBlocks } from "@/contexts/BlocksContext";
 import { useColors } from "@/hooks/useColors";
@@ -30,6 +31,7 @@ export default function TodayScreen() {
   const isWeb = Platform.OS === "web";
   const { blocks, addBlock } = useBlocks();
   const [logOpen, setLogOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const now = Date.now();
   const dayStart = startOfDay(now);
@@ -69,6 +71,21 @@ export default function TodayScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
+      <Pressable
+        onPress={() => setSettingsOpen(true)}
+        hitSlop={10}
+        accessibilityLabel="Settings"
+        style={{
+          position: "absolute",
+          top: topPad + 4,
+          right: 18,
+          zIndex: 10,
+          padding: 8,
+        }}
+      >
+        <Feather name="settings" size={18} color={c.mutedForeground} />
+      </Pressable>
+
       <ScrollView
         contentContainerStyle={{
           paddingTop: topPad,
@@ -136,7 +153,7 @@ export default function TodayScreen() {
               borderColor={c.border}
             />
             <Stat
-              label="Moments"
+              label="Entries"
               value={String(todayBlocks.length)}
               color={c.foreground}
               borderColor={c.border}
@@ -163,8 +180,8 @@ export default function TodayScreen() {
           {todayBlocks.length === 0 ? (
             <EmptyState
               icon="sunrise"
-              title="No moments captured yet"
-              body="Log a single stretch of time to begin the day's record."
+              title="No entries yet"
+              body="Log a stretch of time to begin the day's record."
             />
           ) : (
             todayBlocks.map((b, i) => (
@@ -202,9 +219,9 @@ export default function TodayScreen() {
                 lineHeight: 19,
               }}
             >
-              When the day quiets, head to{" "}
+              When the day winds down, head to{" "}
               <Text style={{ fontFamily: "Inter_600SemiBold" }}>Reflect</Text>{" "}
-              to fill any gaps and close out the day honestly.
+              to fill any gaps and add a note.
             </Text>
           </View>
         ) : null}
@@ -219,7 +236,12 @@ export default function TodayScreen() {
           await addBlock(b);
           setLogOpen(false);
         }}
-        title="Capture a moment"
+        title="Log a moment"
+      />
+
+      <SettingsSheet
+        visible={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
       />
     </View>
   );
@@ -247,7 +269,7 @@ function AuditHeadline({
           letterSpacing: -0.4,
         }}
       >
-        Nothing captured yet.
+        Nothing logged yet.
       </Text>
     );
   }
@@ -298,7 +320,7 @@ function choosePrompt({
   lastLogged: TimeBlock | null;
   activeDays: number;
 }): string | null {
-  if (!lastLogged) return "Begin where you are.";
+  if (!lastLogged) return "Log a stretch of time to begin.";
 
   const since = now - lastLogged.endTime;
 

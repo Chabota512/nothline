@@ -12,7 +12,7 @@ const ICON_MAP: Record<
   wealth: "trending-up",
   people: "users",
   mind: "moon",
-  drift: "cloud-drizzle",
+  drift: "coffee",
 };
 
 export function BuildIcon({

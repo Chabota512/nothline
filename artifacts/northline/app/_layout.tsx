@@ -9,14 +9,17 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { Onboarding } from "@/components/Onboarding";
 import { BlocksProvider } from "@/contexts/BlocksContext";
+import { SettingsProvider } from "@/contexts/SettingsContext";
+import * as storage from "@/lib/storage";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -37,6 +40,36 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerBackTitle: "Back", headerShown: false }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
     </Stack>
+  );
+}
+
+function OnboardingGate({ children }: { children: React.ReactNode }) {
+  const [checked, setChecked] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      const done = await storage.getOnboarded();
+      if (cancel) return;
+      setShowOnboarding(!done);
+      setChecked(true);
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, []);
+
+  if (!checked) return null;
+
+  return (
+    <>
+      {children}
+      <Onboarding
+        visible={showOnboarding}
+        onDone={() => setShowOnboarding(false)}
+      />
+    </>
   );
 }
 
@@ -62,10 +95,14 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView>
             <KeyboardProvider>
-              <BlocksProvider>
-                <StatusBar style="auto" />
-                <RootLayoutNav />
-              </BlocksProvider>
+              <SettingsProvider>
+                <BlocksProvider>
+                  <StatusBar style="auto" />
+                  <OnboardingGate>
+                    <RootLayoutNav />
+                  </OnboardingGate>
+                </BlocksProvider>
+              </SettingsProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>

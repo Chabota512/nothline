@@ -16,13 +16,18 @@ export function HourHeatmap({ blocks }: { blocks: TimeBlock[] }) {
       <View style={{ flexDirection: "row", gap: 4, alignItems: "flex-end" }}>
         {buckets.map((b) => {
           const ratio = b.ms > 0 ? Math.max(0.12, b.ms / max) : 0;
-          const driftRatio = b.driftMs > 0 ? Math.max(0.12, b.driftMs / max) : 0;
           return (
             <View
               key={b.hour}
               style={{ flex: 1, alignItems: "center", gap: 2 }}
             >
-              <View style={{ width: "100%", height: 64, justifyContent: "flex-end" }}>
+              <View
+                style={{
+                  width: "100%",
+                  height: 64,
+                  justifyContent: "flex-end",
+                }}
+              >
                 {ratio > 0 ? (
                   <View
                     style={{
@@ -32,24 +37,14 @@ export function HourHeatmap({ blocks }: { blocks: TimeBlock[] }) {
                       borderTopRightRadius: 2,
                     }}
                   />
-                ) : null}
-                {driftRatio > 0 ? (
-                  <View
-                    style={{
-                      height: `${driftRatio * 30}%`,
-                      backgroundColor: c.mutedForeground,
-                      opacity: 0.5,
-                    }}
-                  />
-                ) : null}
-                {ratio === 0 && driftRatio === 0 ? (
+                ) : (
                   <View
                     style={{
                       height: 2,
                       backgroundColor: c.border,
                     }}
                   />
-                ) : null}
+                )}
               </View>
             </View>
           );

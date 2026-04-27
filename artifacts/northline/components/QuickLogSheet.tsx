@@ -241,7 +241,7 @@ export function QuickLogSheet({
               <TextInput
                 value={primary}
                 onChangeText={setPrimary}
-                placeholder="What were you actually doing?"
+                placeholder="What were you doing?"
                 placeholderTextColor={c.mutedForeground}
                 style={{
                   backgroundColor: c.card,
@@ -276,10 +276,10 @@ export function QuickLogSheet({
               </View>
             </View>
 
-            {/* Builds what */}
+            {/* Category */}
             <View style={styles.section}>
               <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
-                WHAT DID THIS BUILD?
+                CATEGORY (OPTIONAL)
               </Text>
               <View
                 style={{
@@ -334,10 +334,10 @@ export function QuickLogSheet({
               </View>
             </View>
 
-            {/* Attention leakage */}
+            {/* Also happening */}
             <View style={styles.section}>
               <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
-                ATTENTION LEAKAGE (OPTIONAL)
+                ALSO HAPPENING (OPTIONAL)
               </Text>
               <View
                 style={{
@@ -388,7 +388,7 @@ export function QuickLogSheet({
               <TextInput
                 value={note}
                 onChangeText={setNote}
-                placeholder="A line for your future self"
+                placeholder="A line for later"
                 placeholderTextColor={c.mutedForeground}
                 multiline
                 style={{

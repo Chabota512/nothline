@@ -25,3 +25,16 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+
+## Artifacts
+
+### `northline` (Expo mobile app)
+
+Calm, neutral self-awareness time-tracking app. Time-audit-first; not judgmental.
+
+- **Storage**: AsyncStorage only — no backend. Keys: `@northline:blocks:v1`, `@northline:reflections:v1`, `@northline:onboarded:v1`, `@northline:settings:v1`.
+- **Tabs**: Today (audit + timeline + settings gear), Reflect (day notes + gap recovery), Insights (week patterns).
+- **Notifications**: `expo-notifications` schedules a repeating local TIME_INTERVAL reminder asking "What did the last X minutes hold?". Android channel `northline-reminders` with PUBLIC lockscreen visibility. Web is no-op. Configurable interval (20/30/40/60/90 min). Re-armed on app start in `SettingsContext`.
+- **Onboarding**: 3-slide modal shown on first launch (welcome → capture → reminders). Last slide offers reminder enable + interval picker on native.
+- **Categories**: id `drift` is preserved internally for back-compat but labeled "Leisure" in the UI; no migration needed for existing data. All categories count equally toward totals (no special drift handling).
+- **Build/test**: APK builds not supported on Replit. Use Expo Go for Android testing via the QR code in the workflow logs.

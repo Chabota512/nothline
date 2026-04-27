@@ -20,7 +20,6 @@ export function TimelineBlockView({
   const meta = block.builds
     ? BUILD_CATEGORIES.find((b) => b.id === block.builds)
     : null;
-  const isDrift = block.builds === "drift";
 
   return (
     <Pressable onPress={onPress}>
@@ -52,7 +51,7 @@ export function TimelineBlockView({
             style={[
               styles.dot,
               {
-                backgroundColor: isDrift ? c.mutedForeground : c.primary,
+                backgroundColor: c.primary,
                 borderColor: c.background,
               },
             ]}
@@ -90,7 +89,7 @@ export function TimelineBlockView({
               }}
             >
               + {block.secondaryActivity}{" "}
-              <Text style={{ fontStyle: "italic" }}>(attention leakage)</Text>
+              <Text style={{ fontStyle: "italic" }}>(also happening)</Text>
             </Text>
           ) : null}
 

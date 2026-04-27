@@ -1,5 +1,5 @@
 import { formatHourShort, HOUR, MINUTE, startOfWeek } from "./time";
-import type { BuildCategory, TimeBlock } from "./types";
+import { BUILD_CATEGORIES, type BuildCategory, type TimeBlock } from "./types";
 
 export type CategoryTotal = {
   category: BuildCategory;
@@ -19,27 +19,15 @@ export function totalLogged(blocks: TimeBlock[]): number {
   return blocks.reduce((s, b) => s + (b.endTime - b.startTime), 0);
 }
 
-export function distractionMs(blocks: TimeBlock[]): number {
-  let total = 0;
-  for (const b of blocks) {
-    if (b.builds === "drift") total += b.endTime - b.startTime;
-    if (b.secondaryActivity)
-      total += Math.min(15 * MINUTE, (b.endTime - b.startTime) * 0.25);
-  }
-  return total;
-}
-
 export type HourBucket = {
   hour: number;
   ms: number;
-  driftMs: number;
 };
 
 export function hourlyBuckets(blocks: TimeBlock[]): HourBucket[] {
   const buckets: HourBucket[] = Array.from({ length: 24 }, (_, i) => ({
     hour: i,
     ms: 0,
-    driftMs: 0,
   }));
   for (const b of blocks) {
     let cursor = b.startTime;
@@ -49,18 +37,14 @@ export function hourlyBuckets(blocks: TimeBlock[]): HourBucket[] {
       const nextHour = new Date(d);
       nextHour.setHours(hour + 1, 0, 0, 0);
       const slice = Math.min(b.endTime, nextHour.getTime()) - cursor;
-      if (b.builds === "drift") {
-        buckets[hour].driftMs += slice;
-      } else {
-        buckets[hour].ms += slice;
-      }
+      buckets[hour].ms += slice;
       cursor += slice;
     }
   }
   return buckets;
 }
 
-export function bestStretch(
+export function busiestStretch(
   blocks: TimeBlock[],
 ): { start: number; end: number; ms: number } | null {
   const b = hourlyBuckets(blocks);
@@ -121,92 +105,58 @@ export function findGaps(
   return gaps;
 }
 
+function categoryLabel(cat: BuildCategory): string {
+  return BUILD_CATEGORIES.find((c) => c.id === cat)?.label ?? cat;
+}
+
 export function generateInsights(blocks: TimeBlock[]): string[] {
   const out: string[] = [];
   const week = startOfWeek(Date.now());
   const recent = blocks.filter((b) => b.endTime >= week);
 
   if (recent.length < 3) {
-    out.push(
-      "A few more moments of capture and patterns will start to emerge.",
-    );
+    out.push("A few more entries and patterns will start to surface here.");
     return out;
   }
 
-  const bh = bestStretch(recent.filter((b) => b.builds !== "drift"));
-  if (bh) {
+  const stretch = busiestStretch(recent);
+  if (stretch) {
     out.push(
-      `Your strongest stretch is between ${formatHourShort(bh.start)} and ${formatHourShort(bh.end)}.`,
+      `Most of your tagged hours fall between ${formatHourShort(stretch.start)} and ${formatHourShort(stretch.end)}.`,
     );
   }
 
-  const drift = recent.filter((b) => b.builds === "drift");
-  if (drift.length) {
-    const driftMs = drift.reduce((s, b) => s + (b.endTime - b.startTime), 0);
-    const hours = (driftMs / HOUR).toFixed(1);
-    const hourMap = new Map<number, number>();
-    for (const b of drift) {
-      const h = new Date(b.startTime).getHours();
-      hourMap.set(h, (hourMap.get(h) ?? 0) + (b.endTime - b.startTime));
-    }
-    let topHour = -1;
-    let topMs = 0;
-    for (const [h, ms] of hourMap.entries()) {
-      if (ms > topMs) {
-        topMs = ms;
-        topHour = h;
-      }
-    }
-    if (topHour >= 0) {
-      out.push(
-        `Drift gathers around ${formatHourShort(topHour)} — about ${hours}h this week.`,
-      );
-    } else {
-      out.push(`Drift this week: ${hours}h.`);
-    }
+  const totals = totalsByBuild(recent).sort((a, b) => b.ms - a.ms);
+  const top = totals[0];
+  if (top) {
+    const hours = (top.ms / HOUR).toFixed(1);
+    out.push(`Most-tagged this week: ${categoryLabel(top.category)} (${hours}h).`);
   }
 
   const withSecondary = recent.filter((b) => b.secondaryActivity);
   if (withSecondary.length >= 3) {
     out.push(
-      "Your focused sessions often include attention leakage. Notice the pattern.",
+      `${withSecondary.length} of your sessions had something running in parallel.`,
     );
   }
 
-  const totals = totalsByBuild(recent);
-  const positive = totals
-    .filter((t) => t.category !== "drift")
-    .sort((a, b) => b.ms - a.ms);
-  const top = positive[0];
-  if (top) {
-    const labelMap: Record<BuildCategory, string> = {
-      skill: "building skill",
-      body: "caring for your body",
-      wealth: "building toward future freedom",
-      people: "tending relationships",
-      mind: "restoring your mind",
-      drift: "drifting",
-    };
-    out.push(`Most of your week went toward ${labelMap[top.category]}.`);
+  const distinctDays = new Set(
+    recent.map((b) => new Date(b.startTime).toDateString()),
+  ).size;
+  if (distinctDays >= 3) {
+    const totalH = (totalLogged(recent) / HOUR).toFixed(1);
+    out.push(`${totalH}h logged across ${distinctDays} days this week.`);
   }
 
   return out;
 }
 
-export function identityLine(blocks: TimeBlock[]): string {
+export function topCategoryLine(blocks: TimeBlock[]): {
+  label: string;
+  ms: number;
+} | null {
   const totals = totalsByBuild(blocks).sort((a, b) => b.ms - a.ms);
-  const positive = totals.filter((t) => t.category !== "drift");
-  if (positive.length === 0) {
-    return "Still listening.";
-  }
-  const top = positive[0];
-  const map: Record<BuildCategory, string> = {
-    skill: "Disciplined learner",
-    body: "Body-aware",
-    wealth: "Quiet builder",
-    people: "Present with people",
-    mind: "Restored",
-    drift: "Drifting",
-  };
-  return map[top.category];
+  if (totals.length === 0) return null;
+  const top = totals[0];
+  return { label: categoryLabel(top.category), ms: top.ms };
 }
