@@ -1,8 +1,13 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "sgXlORvmkWLyh2YAsHPsI"
 uri = "file://artifacts/northline/assets/images/icon.png"
 type = "image"
 title = "northline app icon"
+
+[[outputs]]
+id = "meGu7fChfs4Iqw4Bi6FaM"
+uri = "file://APK_GUIDE.md"
+type = "text"
+title = "Northline – Free APK Build Guide"
