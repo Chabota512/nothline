@@ -1,0 +1,31 @@
+export const SUGGESTED_ACTIVITIES = [
+  "Deep work",
+  "Meeting",
+  "Email",
+  "Studying",
+  "Reading",
+  "Exercise",
+  "Walk",
+  "Cooking",
+  "Eating",
+  "Commute",
+  "Errands",
+  "Family time",
+  "Conversation",
+  "Phone scrolling",
+  "Social media",
+  "Sleep",
+  "Rest",
+  "Planning",
+  "Writing",
+  "Praying",
+];
+
+export const SECONDARY_LEAKAGE = [
+  "Phone",
+  "Social media",
+  "Email checking",
+  "YouTube",
+  "Conversation",
+  "Notifications",
+];

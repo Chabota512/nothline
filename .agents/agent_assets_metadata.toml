@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "sgXlORvmkWLyh2YAsHPsI"
+uri = "file://artifacts/northline/assets/images/icon.png"
+type = "image"
+title = "northline app icon"
