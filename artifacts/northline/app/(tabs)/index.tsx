@@ -11,6 +11,10 @@ import { TimelineBlockView } from "@/components/TimelineBlockView";
 import { useBlocks } from "@/contexts/BlocksContext";
 import { useColors } from "@/hooks/useColors";
 import {
+  DAY,
+  HOUR,
+  MINUTE,
+  dateKey,
   endOfDay,
   formatDuration,
   formatTime,
@@ -37,7 +41,7 @@ export default function TodayScreen() {
     [blocks, dayStart, dayEnd],
   );
 
-  const lastLogged = useMemo(() => {
+  const lastLogged = useMemo<TimeBlock | null>(() => {
     if (blocks.length === 0) return null;
     return blocks.reduce<TimeBlock>(
       (a, b) => (a.endTime > b.endTime ? a : b),
@@ -48,6 +52,17 @@ export default function TodayScreen() {
   const totalToday = todayBlocks.reduce(
     (s, b) => s + (b.endTime - b.startTime),
     0,
+  );
+
+  const activeDays = useMemo(() => {
+    const set = new Set<string>();
+    for (const b of blocks) set.add(dateKey(b.startTime));
+    return set.size;
+  }, [blocks]);
+
+  const prompt = useMemo(
+    () => choosePrompt({ now, lastLogged, activeDays }),
+    [now, lastLogged, activeDays],
   );
 
   const topPad = isWeb ? 67 : insets.top + 8;
@@ -61,27 +76,16 @@ export default function TodayScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        <Header
-          kicker={greeting(now)}
-          title={todayLabel(now)}
-          subtitle="What this day builds is up to you."
-        />
+        <Header kicker={greeting(now)} title={todayLabel(now)} />
 
-        {/* Now prompt */}
+        {/* Audit card */}
         <View
           style={[
             styles.nowCard,
             { backgroundColor: c.card, borderColor: c.border },
           ]}
         >
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: 8,
-            }}
-          >
+          <View style={styles.nowKicker}>
             <View
               style={{
                 width: 7,
@@ -102,30 +106,27 @@ export default function TodayScreen() {
               Now · {formatTime(now)}
             </Text>
           </View>
-          <Text
-            style={{
-              color: c.foreground,
-              fontFamily: "Inter_600SemiBold",
-              fontSize: 22,
-              lineHeight: 28,
-              letterSpacing: -0.4,
-            }}
-          >
-            What is this hour building?
-          </Text>
-          <Text
-            style={{
-              color: c.mutedForeground,
-              fontFamily: "Inter_400Regular",
-              fontSize: 13,
-              marginTop: 8,
-              lineHeight: 19,
-            }}
-          >
-            {lastLogged
-              ? `Last captured ${formatTime(lastLogged.endTime)} — ${lastLogged.primaryActivity.toLowerCase()}.`
-              : "Capture your first moment to begin."}
-          </Text>
+
+          <AuditHeadline
+            lastLogged={lastLogged}
+            now={now}
+            color={c.foreground}
+            mutedColor={c.mutedForeground}
+          />
+
+          {prompt ? (
+            <Text
+              style={{
+                color: c.mutedForeground,
+                fontFamily: "Inter_400Regular",
+                fontSize: 13,
+                marginTop: 12,
+                lineHeight: 19,
+              }}
+            >
+              {prompt}
+            </Text>
+          ) : null}
 
           <View style={styles.statsRow}>
             <Stat
@@ -162,8 +163,8 @@ export default function TodayScreen() {
           {todayBlocks.length === 0 ? (
             <EmptyState
               icon="sunrise"
-              title="The day is still open"
-              body="Capture a single moment, no matter how small. Truth begins with one entry."
+              title="No moments captured yet"
+              body="Log a single stretch of time to begin the day's record."
             />
           ) : (
             todayBlocks.map((b, i) => (
@@ -203,7 +204,7 @@ export default function TodayScreen() {
             >
               When the day quiets, head to{" "}
               <Text style={{ fontFamily: "Inter_600SemiBold" }}>Reflect</Text>{" "}
-              to fill any gaps and notice the day honestly.
+              to fill any gaps and close out the day honestly.
             </Text>
           </View>
         ) : null}
@@ -222,6 +223,97 @@ export default function TodayScreen() {
       />
     </View>
   );
+}
+
+function AuditHeadline({
+  lastLogged,
+  now,
+  color,
+  mutedColor,
+}: {
+  lastLogged: TimeBlock | null;
+  now: number;
+  color: string;
+  mutedColor: string;
+}) {
+  if (!lastLogged) {
+    return (
+      <Text
+        style={{
+          color,
+          fontFamily: "Inter_600SemiBold",
+          fontSize: 22,
+          lineHeight: 28,
+          letterSpacing: -0.4,
+        }}
+      >
+        Nothing captured yet.
+      </Text>
+    );
+  }
+
+  const since = now - lastLogged.endTime;
+  const sinceLabel =
+    since < MINUTE
+      ? "just now"
+      : since < HOUR
+        ? `${Math.round(since / MINUTE)} min`
+        : `${formatDuration(since)}`;
+
+  return (
+    <View>
+      <Text
+        style={{
+          color,
+          fontFamily: "Inter_600SemiBold",
+          fontSize: 22,
+          lineHeight: 28,
+          letterSpacing: -0.4,
+        }}
+      >
+        {sinceLabel}
+        <Text style={{ color: mutedColor }}> since last entry</Text>
+      </Text>
+      <Text
+        style={{
+          color: mutedColor,
+          fontFamily: "Inter_400Regular",
+          fontSize: 13,
+          marginTop: 6,
+          lineHeight: 19,
+        }}
+      >
+        {formatTime(lastLogged.endTime)} — {lastLogged.primaryActivity}
+      </Text>
+    </View>
+  );
+}
+
+function choosePrompt({
+  now,
+  lastLogged,
+  activeDays,
+}: {
+  now: number;
+  lastLogged: TimeBlock | null;
+  activeDays: number;
+}): string | null {
+  if (!lastLogged) return "Begin where you are.";
+
+  const since = now - lastLogged.endTime;
+
+  if (since > 3 * HOUR) return "Where did the last few hours go?";
+  if (since > HOUR) return "What's filled the time since?";
+  if (since > 30 * MINUTE) return "What just happened?";
+
+  // Recent log. After at least one full day of use, occasionally let the
+  // deeper question surface — quietly, never as the headline.
+  if (activeDays >= 1) {
+    const dayIndex = Math.floor(now / DAY);
+    if (dayIndex % 5 === 0) return "Quietly — what is this hour building?";
+  }
+
+  return null;
 }
 
 function Stat({
@@ -279,6 +371,12 @@ const styles = StyleSheet.create({
     padding: 22,
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
+  },
+  nowKicker: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
   },
   statsRow: {
     flexDirection: "row",
