@@ -30,6 +30,7 @@ export type Settings = {
   themePreference: ThemePreference;
   dayStartHour: number;
   dayEndHour: number;
+  aiEnabled: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -38,6 +39,7 @@ export const DEFAULT_SETTINGS: Settings = {
   themePreference: "system",
   dayStartHour: 6,
   dayEndHour: 23,
+  aiEnabled: false,
 };
 
 export const REMINDER_INTERVAL_OPTIONS = [20, 30, 40, 60, 90];

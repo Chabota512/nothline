@@ -282,6 +282,54 @@ export function SettingsSheet({ visible, onClose }: Props) {
                     {testMessage}
                   </Text>
                 ) : null}
+
+                <View
+                  style={{
+                    marginTop: 18,
+                    paddingTop: 16,
+                    borderTopWidth: StyleSheet.hairlineWidth,
+                    borderTopColor: c.border,
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{
+                          color: c.foreground,
+                          fontFamily: "Inter_500Medium",
+                          fontSize: 14,
+                        }}
+                      >
+                        AI Insights
+                      </Text>
+                      <Text
+                        style={{
+                          color: c.mutedForeground,
+                          fontFamily: "Inter_400Regular",
+                          fontSize: 12,
+                          marginTop: 4,
+                          lineHeight: 17,
+                        }}
+                      >
+                        Generate personalized insights using AI. Requires API keys.
+                      </Text>
+                    </View>
+                    <Switch
+                      value={settings.aiEnabled}
+                      onValueChange={(val) => updateSettings({ aiEnabled: val })}
+                      trackColor={{ false: c.border, true: c.primary }}
+                      thumbColor={
+                        Platform.OS === "android" ? c.background : undefined
+                      }
+                    />
+                  </View>
+                </View>
               </View>
 
               {Platform.OS === "web" ? (

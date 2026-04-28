@@ -1,12 +1,15 @@
 import React, { useMemo } from "react";
 import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQuery } from "@tanstack/react-query";
 
 import { EmptyState } from "@/components/EmptyState";
 import { Header } from "@/components/Header";
 import { InsightCard } from "@/components/InsightCard";
 import { useBlocks } from "@/contexts/BlocksContext";
+import { useSettings } from "@/contexts/SettingsContext";
 import { useColors } from "@/hooks/useColors";
+import { generateAIInsights } from "@/lib/ai";
 import {
   busiestStretch,
   complianceRate,
@@ -26,6 +29,7 @@ export default function InsightsScreen() {
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const { allLoggedBlocks } = useBlocks();
+  const { settings } = useSettings();
 
   const weekStart = startOfWeek(Date.now());
   const weekBlocks = useMemo(
@@ -41,6 +45,13 @@ export default function InsightsScreen() {
     [allLoggedBlocks],
   );
   const rate = useMemo(() => complianceRate(weekBlocks), [weekBlocks]);
+
+  const { data: aiInsights, isLoading: aiLoading } = useQuery({
+    queryKey: ["ai-insights", allLoggedBlocks.length],
+    queryFn: () => generateAIInsights(allLoggedBlocks),
+    enabled: settings.aiEnabled && weekBlocks.length >= 5,
+    staleTime: 1000 * 60 * 60, // Cache for 1 hour
+  });
 
   const topPad = isWeb ? 67 : insets.top + 8;
 
@@ -189,6 +200,35 @@ export default function InsightsScreen() {
             {insights.map((t, i) => (
               <InsightCard key={i} text={t} />
             ))}
+          </>
+        ) : null}
+
+        {/* AI Insights */}
+        {aiInsights && aiInsights.length > 0 ? (
+          <>
+            <SectionLabel color={c.mutedForeground} top={28}>
+              AI Insights
+            </SectionLabel>
+            {aiInsights.map((t, i) => (
+              <InsightCard key={`ai-${i}`} text={t} />
+            ))}
+          </>
+        ) : aiLoading ? (
+          <>
+            <SectionLabel color={c.mutedForeground} top={28}>
+              AI Insights
+            </SectionLabel>
+            <Text
+              style={{
+                color: c.mutedForeground,
+                fontFamily: "Inter_400Regular",
+                fontSize: 14,
+                paddingHorizontal: 24,
+                lineHeight: 21,
+              }}
+            >
+              Generating insights...
+            </Text>
           </>
         ) : null}
 
