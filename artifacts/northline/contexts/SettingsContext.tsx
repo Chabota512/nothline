@@ -21,7 +21,7 @@ type Ctx = {
   testNotification: () => Promise<boolean>;
 };
 
-const SettingsCtx = createContext<Ctx | null>(null);
+export const SettingsCtx = createContext<Ctx | null>(null);
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);

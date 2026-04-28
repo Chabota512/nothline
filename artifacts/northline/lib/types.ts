@@ -40,14 +40,24 @@ export type Reflection = {
   createdAt: number;
 };
 
+export type ThemePreference = "system" | "light" | "dark";
+
 export type Settings = {
   reminderEnabled: boolean;
   reminderIntervalMinutes: number;
+  themePreference: ThemePreference;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
   reminderEnabled: false,
   reminderIntervalMinutes: 40,
+  themePreference: "system",
 };
 
 export const REMINDER_INTERVAL_OPTIONS = [20, 30, 40, 60, 90];
+
+export const THEME_OPTIONS: { id: ThemePreference; label: string }[] = [
+  { id: "system", label: "System" },
+  { id: "light", label: "Light" },
+  { id: "dark", label: "Dark" },
+];

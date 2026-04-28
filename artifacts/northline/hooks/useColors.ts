@@ -1,24 +1,28 @@
+import { useContext } from "react";
 import { useColorScheme } from "react-native";
 
 import colors from "@/constants/colors";
+import { SettingsCtx } from "@/contexts/SettingsContext";
 
 /**
- * Returns the design tokens for the current color scheme.
+ * Returns the design tokens for the active color scheme.
  *
- * The returned object contains all color tokens for the active palette
- * plus scheme-independent values like `radius`.
- *
- * Falls back to the light palette when no dark key is defined in
- * constants/colors.ts (the scaffold ships light-only by default).
- * When a sibling web artifact's dark tokens are synced into a `dark`
- * key, this hook will automatically switch palettes based on the
- * device's appearance setting.
+ * Reads the user's saved theme preference from SettingsContext when available
+ * ("system" | "light" | "dark") and resolves it against the device color
+ * scheme. Falls back to "system" when the SettingsProvider isn't mounted yet
+ * (e.g. inside the ErrorBoundary fallback) so this hook never throws.
  */
 export function useColors() {
-  const scheme = useColorScheme();
+  const systemScheme = useColorScheme();
+  const settingsCtx = useContext(SettingsCtx);
+  const pref = settingsCtx?.settings.themePreference ?? "system";
+
+  const effectiveScheme = pref === "system" ? systemScheme : pref;
+
   const palette =
-    scheme === "dark" && "dark" in colors
+    effectiveScheme === "dark" && "dark" in colors
       ? (colors as Record<string, typeof colors.light>).dark
       : colors.light;
+
   return { ...palette, radius: colors.radius };
 }

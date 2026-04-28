@@ -14,7 +14,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useSettings } from "@/contexts/SettingsContext";
 import { useColors } from "@/hooks/useColors";
-import { REMINDER_INTERVAL_OPTIONS } from "@/lib/types";
+import {
+  REMINDER_INTERVAL_OPTIONS,
+  THEME_OPTIONS,
+  type ThemePreference,
+} from "@/lib/types";
 
 import { Chip } from "./Chip";
 
@@ -49,6 +53,10 @@ export function SettingsSheet({ visible, onClose }: Props) {
   const handleInterval = async (mins: number): Promise<void> => {
     setPermissionMessage(null);
     await updateSettings({ reminderIntervalMinutes: mins });
+  };
+
+  const handleTheme = async (pref: ThemePreference): Promise<void> => {
+    await updateSettings({ themePreference: pref });
   };
 
   const handleTest = async (): Promise<void> => {
@@ -291,6 +299,58 @@ export function SettingsSheet({ visible, onClose }: Props) {
                   to use them.
                 </Text>
               ) : null}
+            </View>
+
+            {/* Appearance */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
+                APPEARANCE
+              </Text>
+              <View
+                style={[
+                  styles.surface,
+                  { backgroundColor: c.card, borderColor: c.border },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: c.foreground,
+                    fontFamily: "Inter_600SemiBold",
+                    fontSize: 15,
+                  }}
+                >
+                  Theme
+                </Text>
+                <Text
+                  style={{
+                    color: c.mutedForeground,
+                    fontFamily: "Inter_400Regular",
+                    fontSize: 12,
+                    marginTop: 4,
+                    lineHeight: 17,
+                  }}
+                >
+                  Match your device, or pick a fixed look.
+                </Text>
+                <View
+                  style={{
+                    marginTop: 14,
+                    flexDirection: "row",
+                    flexWrap: "wrap",
+                    gap: 8,
+                  }}
+                >
+                  {THEME_OPTIONS.map((opt) => (
+                    <Chip
+                      key={opt.id}
+                      small
+                      label={opt.label}
+                      selected={settings.themePreference === opt.id}
+                      onPress={() => handleTheme(opt.id)}
+                    />
+                  ))}
+                </View>
+              </View>
             </View>
 
             {/* About */}
