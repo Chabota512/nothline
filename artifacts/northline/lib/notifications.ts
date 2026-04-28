@@ -59,7 +59,7 @@ export async function scheduleReminders(
   await Notifications.scheduleNotificationAsync({
     content: {
       title: "Northline",
-      body: `What did the last ${intervalMinutes} minutes hold?`,
+      body: `What did you do in the last ${intervalMinutes} minutes?`,
       sound: "default",
       ...(Platform.OS === "android"
         ? { channelId: REMINDER_CHANNEL }

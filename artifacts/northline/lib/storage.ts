@@ -1,24 +1,38 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { DEFAULT_SETTINGS, type Reflection, type Settings, type TimeBlock } from "./types";
+import {
+  DEFAULT_SETTINGS,
+  type Reflection,
+  type ScheduledBlock,
+  type Settings,
+} from "./types";
 
-const BLOCKS_KEY = "@northline:blocks:v1";
+const SCHEDULED_BLOCKS_KEY = "@northline:scheduledBlocks:v1";
 const REFLECTIONS_KEY = "@northline:reflections:v1";
 const ONBOARDING_KEY = "@northline:onboarded:v1";
 const SETTINGS_KEY = "@northline:settings:v1";
+const LEGACY_BLOCKS_KEY = "@northline:blocks:v1";
 
-export async function loadBlocks(): Promise<TimeBlock[]> {
-  const raw = await AsyncStorage.getItem(BLOCKS_KEY);
+export async function loadScheduledBlocks(): Promise<ScheduledBlock[]> {
+  // One-time clear of legacy data from the old category model.
+  try {
+    await AsyncStorage.removeItem(LEGACY_BLOCKS_KEY);
+  } catch {
+    // ignore
+  }
+  const raw = await AsyncStorage.getItem(SCHEDULED_BLOCKS_KEY);
   if (!raw) return [];
   try {
-    return JSON.parse(raw) as TimeBlock[];
+    return JSON.parse(raw) as ScheduledBlock[];
   } catch {
     return [];
   }
 }
 
-export async function saveBlocks(blocks: TimeBlock[]): Promise<void> {
-  await AsyncStorage.setItem(BLOCKS_KEY, JSON.stringify(blocks));
+export async function saveScheduledBlocks(
+  blocks: ScheduledBlock[],
+): Promise<void> {
+  await AsyncStorage.setItem(SCHEDULED_BLOCKS_KEY, JSON.stringify(blocks));
 }
 
 export async function loadReflections(): Promise<Reflection[]> {

@@ -1,34 +1,16 @@
-export type BuildCategory =
-  | "skill"
-  | "body"
-  | "wealth"
-  | "people"
-  | "mind"
-  | "drift";
+export type BlockStatus = "pending" | "logged" | "missed";
 
-export const BUILD_CATEGORIES: {
-  id: BuildCategory;
-  label: string;
-}[] = [
-  { id: "skill", label: "Skill" },
-  { id: "body", label: "Body" },
-  { id: "wealth", label: "Wealth" },
-  { id: "people", label: "People" },
-  { id: "mind", label: "Mind" },
-  { id: "drift", label: "Leisure" },
-];
-
-export type TimeBlock = {
+export type ScheduledBlock = {
   id: string;
+  date: string;
   startTime: number;
   endTime: number;
-  primaryActivity: string;
+  status: BlockStatus;
+  primaryActivity?: string;
   secondaryActivity?: string;
-  builds?: BuildCategory;
   energy?: 1 | 2 | 3 | 4 | 5;
   note?: string;
-  isReconstructed: boolean;
-  createdAt: number;
+  loggedAt?: number;
 };
 
 export type Reflection = {
@@ -46,12 +28,16 @@ export type Settings = {
   reminderEnabled: boolean;
   reminderIntervalMinutes: number;
   themePreference: ThemePreference;
+  dayStartHour: number;
+  dayEndHour: number;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
   reminderEnabled: false,
-  reminderIntervalMinutes: 40,
+  reminderIntervalMinutes: 60,
   themePreference: "system",
+  dayStartHour: 6,
+  dayEndHour: 23,
 };
 
 export const REMINDER_INTERVAL_OPTIONS = [20, 30, 40, 60, 90];

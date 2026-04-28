@@ -1,33 +1,37 @@
+import { Feather } from "@expo/vector-icons";
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
-import { formatDuration, formatTime } from "@/lib/time";
-import { BUILD_CATEGORIES, type TimeBlock } from "@/lib/types";
+import { formatTime } from "@/lib/time";
+import type { ScheduledBlock } from "@/lib/types";
 
-import { BuildIcon } from "./BuildIcon";
-
-export function TimelineBlockView({
-  block,
-  onPress,
-  isLast,
-}: {
-  block: TimeBlock;
-  onPress?: () => void;
+type Props = {
+  block: ScheduledBlock;
   isLast?: boolean;
-}) {
+  onPress?: () => void;
+};
+
+export function TimelineBlockView({ block, isLast, onPress }: Props) {
   const c = useColors();
-  const meta = block.builds
-    ? BUILD_CATEGORIES.find((b) => b.id === block.builds)
-    : null;
+
+  const isLogged = block.status === "logged";
+  const isMissed = block.status === "missed";
+  const isPending = block.status === "pending";
+
+  const dotColor = isLogged
+    ? c.primary
+    : isMissed
+      ? c.mutedForeground
+      : c.border;
 
   return (
-    <Pressable onPress={onPress}>
+    <Pressable onPress={onPress} disabled={!onPress}>
       <View style={styles.row}>
         <View style={styles.timeCol}>
           <Text
             style={{
-              color: c.foreground,
+              color: isPending ? c.mutedForeground : c.foreground,
               fontFamily: "Inter_500Medium",
               fontSize: 13,
             }}
@@ -42,7 +46,7 @@ export function TimelineBlockView({
               marginTop: 4,
             }}
           >
-            {formatDuration(block.endTime - block.startTime)}
+            {formatTime(block.endTime)}
           </Text>
         </View>
 
@@ -51,8 +55,14 @@ export function TimelineBlockView({
             style={[
               styles.dot,
               {
-                backgroundColor: c.primary,
+                backgroundColor: dotColor,
                 borderColor: c.background,
+                ...(isMissed
+                  ? {
+                      backgroundColor: "transparent",
+                      borderColor: c.mutedForeground,
+                    }
+                  : {}),
               },
             ]}
           />
@@ -64,77 +74,47 @@ export function TimelineBlockView({
         <View
           style={[
             styles.cardCol,
-            { backgroundColor: c.card, borderColor: c.border },
+            {
+              backgroundColor: c.card,
+              borderColor: c.border,
+              opacity: isPending ? 0.55 : 1,
+            },
           ]}
         >
-          <Text
-            style={{
-              color: c.foreground,
-              fontFamily: "Inter_600SemiBold",
-              fontSize: 15,
-              lineHeight: 21,
-            }}
-          >
-            {block.primaryActivity}
-          </Text>
+          {isLogged && block.primaryActivity ? (
+            <>
+              <Text
+                style={{
+                  color: c.foreground,
+                  fontFamily: "Inter_600SemiBold",
+                  fontSize: 15,
+                  lineHeight: 21,
+                }}
+              >
+                {block.primaryActivity}
+              </Text>
 
-          {block.secondaryActivity ? (
-            <Text
-              style={{
-                color: c.mutedForeground,
-                fontFamily: "Inter_400Regular",
-                fontSize: 12,
-                marginTop: 5,
-                lineHeight: 17,
-              }}
-            >
-              + {block.secondaryActivity}{" "}
-              <Text style={{ fontStyle: "italic" }}>(also happening)</Text>
-            </Text>
-          ) : null}
-
-          {meta || block.energy || block.isReconstructed ? (
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 12,
-                marginTop: 10,
-                flexWrap: "wrap",
-              }}
-            >
-              {meta ? (
-                <View
+              {block.secondaryActivity ? (
+                <Text
                   style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 5,
+                    color: c.mutedForeground,
+                    fontFamily: "Inter_400Regular",
+                    fontSize: 12,
+                    marginTop: 5,
+                    lineHeight: 17,
                   }}
                 >
-                  <BuildIcon
-                    category={meta.id}
-                    color={c.mutedForeground}
-                    size={12}
-                  />
-                  <Text
-                    style={{
-                      color: c.mutedForeground,
-                      fontFamily: "Inter_500Medium",
-                      fontSize: 10,
-                      letterSpacing: 1,
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    {meta.label}
-                  </Text>
-                </View>
+                  + {block.secondaryActivity}
+                </Text>
               ) : null}
+
               {block.energy ? (
                 <View
                   style={{
                     flexDirection: "row",
                     alignItems: "center",
                     gap: 4,
+                    marginTop: 10,
                   }}
                 >
                   {[1, 2, 3, 4, 5].map((n) => (
@@ -151,34 +131,73 @@ export function TimelineBlockView({
                   ))}
                 </View>
               ) : null}
-              {block.isReconstructed ? (
+
+              {block.note ? (
                 <Text
                   style={{
                     color: c.mutedForeground,
                     fontFamily: "Inter_400Regular",
-                    fontSize: 11,
-                    fontStyle: "italic",
+                    fontSize: 13,
+                    marginTop: 10,
+                    lineHeight: 19,
                   }}
                 >
-                  reconstructed
+                  {block.note}
                 </Text>
               ) : null}
+            </>
+          ) : isMissed ? (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <Text
+                style={{
+                  color: c.mutedForeground,
+                  fontFamily: "Inter_500Medium",
+                  fontSize: 14,
+                  fontStyle: "italic",
+                }}
+              >
+                Missed
+              </Text>
+              {onPress ? (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: c.primary,
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 12,
+                      letterSpacing: 0.4,
+                    }}
+                  >
+                    FILL
+                  </Text>
+                  <Feather name="chevron-right" size={14} color={c.primary} />
+                </View>
+              ) : null}
             </View>
-          ) : null}
-
-          {block.note ? (
+          ) : (
             <Text
               style={{
                 color: c.mutedForeground,
                 fontFamily: "Inter_400Regular",
                 fontSize: 13,
-                marginTop: 10,
-                lineHeight: 19,
+                fontStyle: "italic",
               }}
             >
-              {block.note}
+              Upcoming
             </Text>
-          ) : null}
+          )}
         </View>
       </View>
     </Pressable>

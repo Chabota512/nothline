@@ -32,9 +32,11 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 
 Calm, neutral self-awareness time-tracking app. Time-audit-first; not judgmental.
 
-- **Storage**: AsyncStorage only — no backend. Keys: `@northline:blocks:v1`, `@northline:reflections:v1`, `@northline:onboarded:v1`, `@northline:settings:v1`.
-- **Tabs**: Today (audit + timeline + settings gear), Reflect (day notes + gap recovery), Insights (week patterns).
-- **Notifications**: `expo-notifications` schedules a repeating local TIME_INTERVAL reminder asking "What did the last X minutes hold?". Android channel `northline-reminders` with PUBLIC lockscreen visibility. Web is no-op. Configurable interval (20/30/40/60/90 min). Re-armed on app start in `SettingsContext`.
-- **Onboarding**: 3-slide modal shown on first launch (welcome → capture → reminders). Last slide offers reminder enable + interval picker on native.
-- **Categories**: id `drift` is preserved internally for back-compat but labeled "Leisure" in the UI; no migration needed for existing data. All categories count equally toward totals (no special drift handling).
-- **Build/test**: APK builds not supported on Replit. Use Expo Go for Android testing via the QR code in the workflow logs.
+- **Model**: Scheduled time blocks anchored to `dayStartHour` (6) → `dayEndHour` (23) at `reminderIntervalMinutes` (default 60). Each block has status `pending | logged | missed`. Free-form text — no fixed categories.
+- **Storage**: AsyncStorage only — no backend. Keys: `@northline:scheduledBlocks:v1`, `@northline:reflections:v1`, `@northline:onboarded:v1`, `@northline:settings:v1`. Legacy `@northline:blocks:v1` cleared on load.
+- **Tabs**: Today (Now card + timeline + Audits + Settings), Reflect (day notes + missed-block recovery), Insights (prose week patterns).
+- **Audit**: full-screen `app/audit.tsx` — per-day breakdown of the current week with totals, notes, and a "where the time went" recap.
+- **Notifications**: `expo-notifications` schedules a repeating local TIME_INTERVAL reminder. Tapping a notification deep-links to QuickLog for the current block via `Notifications.useLastNotificationResponse()`. Android channel `northline-reminders` with PUBLIC lockscreen visibility. Web is no-op. Re-armed on app start in `SettingsContext`.
+- **Onboarding**: 3-slide modal shown on first launch (welcome → capture → reminders).
+- **Suggestions**: adaptive — surface the user's own past activities as chips, ranked by recency-of-day match, only after logging on ≥2 distinct days.
+- **Build/test**: APK builds not supported on Replit. Use Expo Go via QR; production APK via GitHub Actions cloud build pushed to https://github.com/Chabota512/nothline.git (typo intentional).

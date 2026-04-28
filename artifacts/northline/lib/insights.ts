@@ -1,22 +1,10 @@
-import { formatHourShort, HOUR, MINUTE, startOfWeek } from "./time";
-import { BUILD_CATEGORIES, type BuildCategory, type TimeBlock } from "./types";
+import { HOUR, MINUTE, formatHourShort, startOfWeek } from "./time";
+import type { ScheduledBlock } from "./types";
 
-export type CategoryTotal = {
-  category: BuildCategory;
-  ms: number;
-};
-
-export function totalsByBuild(blocks: TimeBlock[]): CategoryTotal[] {
-  const map = new Map<BuildCategory, number>();
-  for (const b of blocks) {
-    if (!b.builds) continue;
-    map.set(b.builds, (map.get(b.builds) ?? 0) + (b.endTime - b.startTime));
-  }
-  return Array.from(map.entries()).map(([category, ms]) => ({ category, ms }));
-}
-
-export function totalLogged(blocks: TimeBlock[]): number {
-  return blocks.reduce((s, b) => s + (b.endTime - b.startTime), 0);
+export function totalLogged(blocks: ScheduledBlock[]): number {
+  return blocks
+    .filter((b) => b.status === "logged")
+    .reduce((s, b) => s + (b.endTime - b.startTime), 0);
 }
 
 export type HourBucket = {
@@ -24,12 +12,13 @@ export type HourBucket = {
   ms: number;
 };
 
-export function hourlyBuckets(blocks: TimeBlock[]): HourBucket[] {
+export function hourlyBuckets(blocks: ScheduledBlock[]): HourBucket[] {
   const buckets: HourBucket[] = Array.from({ length: 24 }, (_, i) => ({
     hour: i,
     ms: 0,
   }));
   for (const b of blocks) {
+    if (b.status !== "logged") continue;
     let cursor = b.startTime;
     while (cursor < b.endTime) {
       const d = new Date(cursor);
@@ -45,7 +34,7 @@ export function hourlyBuckets(blocks: TimeBlock[]): HourBucket[] {
 }
 
 export function busiestStretch(
-  blocks: TimeBlock[],
+  blocks: ScheduledBlock[],
 ): { start: number; end: number; ms: number } | null {
   const b = hourlyBuckets(blocks);
   let bestStart = -1;
@@ -62,101 +51,76 @@ export function busiestStretch(
 }
 
 export function topActivities(
-  blocks: TimeBlock[],
+  blocks: ScheduledBlock[],
   n = 5,
-): { name: string; ms: number }[] {
-  const map = new Map<string, number>();
+): { name: string; ms: number; count: number }[] {
+  const map = new Map<string, { ms: number; count: number }>();
   for (const b of blocks) {
-    const key = b.primaryActivity.trim();
+    if (b.status !== "logged") continue;
+    const key = (b.primaryActivity ?? "").trim().toLowerCase();
     if (!key) continue;
-    map.set(key, (map.get(key) ?? 0) + (b.endTime - b.startTime));
+    const cur = map.get(key) ?? { ms: 0, count: 0 };
+    cur.ms += b.endTime - b.startTime;
+    cur.count += 1;
+    map.set(key, cur);
   }
   return Array.from(map.entries())
-    .map(([name, ms]) => ({ name, ms }))
+    .map(([name, v]) => ({ name, ms: v.ms, count: v.count }))
     .sort((a, b) => b.ms - a.ms)
     .slice(0, n);
 }
 
-export function findGaps(
-  blocks: TimeBlock[],
-  dayStart: number,
-  dayEnd: number,
-  minGapMs = 30 * MINUTE,
-): { start: number; end: number }[] {
-  const sorted = [...blocks]
-    .filter((b) => b.endTime > dayStart && b.startTime < dayEnd)
-    .sort((a, b) => a.startTime - b.startTime);
-  const wakeStart = dayStart + 7 * HOUR;
-  const lastEnd = Math.min(Date.now(), dayEnd);
-  if (sorted.length === 0) {
-    if (lastEnd - wakeStart >= minGapMs)
-      return [{ start: wakeStart, end: lastEnd }];
-    return [];
-  }
-  const gaps: { start: number; end: number }[] = [];
-  let cursor = Math.max(wakeStart, dayStart);
-  for (const b of sorted) {
-    if (b.startTime - cursor >= minGapMs)
-      gaps.push({ start: cursor, end: b.startTime });
-    cursor = Math.max(cursor, b.endTime);
-  }
-  if (lastEnd - cursor >= minGapMs)
-    gaps.push({ start: cursor, end: lastEnd });
-  return gaps;
+export function complianceRate(blocks: ScheduledBlock[]): number {
+  const past = blocks.filter(
+    (b) => b.status === "logged" || b.status === "missed",
+  );
+  if (past.length === 0) return 0;
+  const logged = past.filter((b) => b.status === "logged").length;
+  return logged / past.length;
 }
 
-function categoryLabel(cat: BuildCategory): string {
-  return BUILD_CATEGORIES.find((c) => c.id === cat)?.label ?? cat;
-}
-
-export function generateInsights(blocks: TimeBlock[]): string[] {
+export function generateInsights(blocks: ScheduledBlock[]): string[] {
   const out: string[] = [];
   const week = startOfWeek(Date.now());
   const recent = blocks.filter((b) => b.endTime >= week);
+  const loggedRecent = recent.filter((b) => b.status === "logged");
 
-  if (recent.length < 3) {
+  if (loggedRecent.length < 3) {
     out.push("A few more entries and patterns will start to surface here.");
     return out;
   }
 
-  const stretch = busiestStretch(recent);
+  const stretch = busiestStretch(loggedRecent);
   if (stretch) {
     out.push(
-      `Most of your tagged hours fall between ${formatHourShort(stretch.start)} and ${formatHourShort(stretch.end)}.`,
+      `Most of your activity falls between ${formatHourShort(stretch.start)} and ${formatHourShort(stretch.end)}.`,
     );
   }
 
-  const totals = totalsByBuild(recent).sort((a, b) => b.ms - a.ms);
-  const top = totals[0];
+  const top = topActivities(loggedRecent, 1)[0];
   if (top) {
-    const hours = (top.ms / HOUR).toFixed(1);
-    out.push(`Most-tagged this week: ${categoryLabel(top.category)} (${hours}h).`);
+    out.push(
+      `Your most consistent activity this week: ${top.name} (${top.count} entries).`,
+    );
   }
 
-  const withSecondary = recent.filter((b) => b.secondaryActivity);
+  const withSecondary = loggedRecent.filter((b) => b.secondaryActivity);
   if (withSecondary.length >= 3) {
     out.push(
       `${withSecondary.length} of your sessions had something running in parallel.`,
     );
   }
 
-  const distinctDays = new Set(
-    recent.map((b) => new Date(b.startTime).toDateString()),
-  ).size;
+  const rate = complianceRate(recent);
+  if (rate > 0) {
+    out.push(`You captured ${Math.round(rate * 100)}% of your time blocks.`);
+  }
+
+  const distinctDays = new Set(loggedRecent.map((b) => b.date)).size;
   if (distinctDays >= 3) {
-    const totalH = (totalLogged(recent) / HOUR).toFixed(1);
+    const totalH = (totalLogged(loggedRecent) / HOUR).toFixed(1);
     out.push(`${totalH}h logged across ${distinctDays} days this week.`);
   }
 
   return out;
-}
-
-export function topCategoryLine(blocks: TimeBlock[]): {
-  label: string;
-  ms: number;
-} | null {
-  const totals = totalsByBuild(blocks).sort((a, b) => b.ms - a.ms);
-  if (totals.length === 0) return null;
-  const top = totals[0];
-  return { label: categoryLabel(top.category), ms: top.ms };
 }

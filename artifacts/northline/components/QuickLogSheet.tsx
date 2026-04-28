@@ -10,83 +10,71 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useBlocks } from "@/contexts/BlocksContext";
 import { useColors } from "@/hooks/useColors";
-import { MINUTE, formatTime } from "@/lib/time";
-import { BUILD_CATEGORIES, type BuildCategory, type TimeBlock } from "@/lib/types";
-import { SECONDARY_LEAKAGE, SUGGESTED_ACTIVITIES } from "@/lib/suggestions";
+import { suggestActivities, suggestSecondary } from "@/lib/suggestions";
+import { formatTime } from "@/lib/time";
+import type { ScheduledBlock } from "@/lib/types";
 
-import { BuildIcon } from "./BuildIcon";
 import { Chip } from "./Chip";
 import { EnergyDots } from "./EnergyDots";
 import { KeyboardAwareScrollViewCompat } from "./KeyboardAwareScrollViewCompat";
 
 type Props = {
   visible: boolean;
+  block: ScheduledBlock | null;
   onClose: () => void;
-  onSave: (b: Omit<TimeBlock, "id" | "createdAt">) => void;
-  initialStart?: number;
-  initialEnd?: number;
-  isReconstructed?: boolean;
-  title?: string;
 };
 
-const DURATIONS = [15, 30, 45, 60, 90, 120];
-
-export function QuickLogSheet({
-  visible,
-  onClose,
-  onSave,
-  initialStart,
-  initialEnd,
-  isReconstructed = false,
-  title = "Capture a moment",
-}: Props) {
+export function QuickLogSheet({ visible, block, onClose }: Props) {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
+  const { logBlock, allLoggedBlocks } = useBlocks();
 
   const [primary, setPrimary] = useState("");
-  const [builds, setBuilds] = useState<BuildCategory | undefined>();
-  const [secondary, setSecondary] = useState<string | undefined>();
+  const [secondary, setSecondary] = useState("");
   const [energy, setEnergy] = useState<number | undefined>();
   const [note, setNote] = useState("");
-  const [duration, setDuration] = useState(60);
-  const [endTime, setEndTime] = useState<number>(Date.now());
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (visible) {
-      setPrimary("");
-      setBuilds(undefined);
-      setSecondary(undefined);
-      setEnergy(undefined);
-      setNote("");
-      const end = initialEnd ?? Date.now();
-      const start = initialStart ?? end - 60 * MINUTE;
-      setEndTime(end);
-      setDuration(Math.max(5, Math.round((end - start) / MINUTE)));
+      setPrimary(block?.primaryActivity ?? "");
+      setSecondary(block?.secondaryActivity ?? "");
+      setEnergy(block?.energy);
+      setNote(block?.note ?? "");
+      setSaving(false);
     }
-  }, [visible, initialStart, initialEnd]);
+  }, [visible, block]);
 
-  const startTime = useMemo(
-    () => endTime - duration * MINUTE,
-    [endTime, duration],
+  const primarySuggestions = useMemo(
+    () =>
+      block ? suggestActivities(allLoggedBlocks, block.startTime, 6) : [],
+    [allLoggedBlocks, block],
   );
 
-  const handleSave = (): void => {
-    if (!primary.trim()) return;
-    onSave({
-      startTime,
-      endTime,
+  const secondarySuggestions = useMemo(
+    () => suggestSecondary(allLoggedBlocks, 4),
+    [allLoggedBlocks],
+  );
+
+  const handleSave = async (): Promise<void> => {
+    if (!block || !primary.trim() || saving) return;
+    setSaving(true);
+    await logBlock(block.id, {
       primaryActivity: primary.trim(),
-      secondaryActivity: secondary,
-      builds,
-      energy: energy as TimeBlock["energy"],
+      secondaryActivity: secondary.trim() || undefined,
+      energy: energy as ScheduledBlock["energy"],
       note: note.trim() || undefined,
-      isReconstructed,
     });
+    onClose();
   };
 
   const bottomPad = isWeb ? 34 : insets.bottom;
+
+  const isMissed = block?.status === "missed";
+  const isCurrent = !!block && Date.now() >= block.startTime && Date.now() < block.endTime;
 
   return (
     <Modal
@@ -157,12 +145,12 @@ export function QuickLogSheet({
                 fontSize: 15,
               }}
             >
-              {title}
+              {isMissed ? "Fill missed block" : isCurrent ? "Log this block" : "Log block"}
             </Text>
             <Pressable
               onPress={handleSave}
               hitSlop={10}
-              disabled={!primary.trim()}
+              disabled={!primary.trim() || saving}
             >
               <Text
                 style={{
@@ -176,237 +164,217 @@ export function QuickLogSheet({
             </Pressable>
           </View>
 
-          <KeyboardAwareScrollViewCompat
-            keyboardShouldPersistTaps="handled"
-            bottomOffset={20}
-            contentContainerStyle={{ paddingBottom: 20 + bottomPad }}
-          >
-            {/* When */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
-                WHEN
-              </Text>
-              <View
-                style={[
-                  styles.surface,
-                  { backgroundColor: c.card, borderColor: c.border },
-                ]}
-              >
-                <Text
-                  style={{
-                    color: c.foreground,
-                    fontFamily: "Inter_600SemiBold",
-                    fontSize: 18,
-                    letterSpacing: -0.3,
-                  }}
-                >
-                  {formatTime(startTime)} — {formatTime(endTime)}
-                </Text>
-                <Text
-                  style={{
-                    color: c.mutedForeground,
-                    fontFamily: "Inter_400Regular",
-                    fontSize: 12,
-                    marginTop: 4,
-                  }}
-                >
-                  {duration} minutes
-                </Text>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    flexWrap: "wrap",
-                    gap: 8,
-                    marginTop: 14,
-                  }}
-                >
-                  {DURATIONS.map((m) => (
-                    <Chip
-                      key={m}
-                      small
-                      label={`${m}m`}
-                      selected={duration === m}
-                      onPress={() => setDuration(m)}
-                    />
-                  ))}
-                </View>
-              </View>
-            </View>
-
-            {/* Activity */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
-                ACTIVITY
-              </Text>
-              <TextInput
-                value={primary}
-                onChangeText={setPrimary}
-                placeholder="What were you doing?"
-                placeholderTextColor={c.mutedForeground}
+          {!block ? (
+            <View style={{ padding: 24 }}>
+              <Text
                 style={{
-                  backgroundColor: c.card,
-                  borderRadius: 14,
-                  paddingHorizontal: 16,
-                  paddingVertical: 14,
-                  borderWidth: StyleSheet.hairlineWidth,
-                  borderColor: c.border,
-                  color: c.foreground,
-                  fontFamily: "Inter_500Medium",
-                  fontSize: 15,
-                }}
-                returnKeyType="done"
-              />
-              <View
-                style={{
-                  flexDirection: "row",
-                  flexWrap: "wrap",
-                  gap: 8,
-                  marginTop: 12,
-                }}
-              >
-                {SUGGESTED_ACTIVITIES.slice(0, 10).map((s) => (
-                  <Chip
-                    key={s}
-                    small
-                    label={s}
-                    selected={primary === s}
-                    onPress={() => setPrimary(s)}
-                  />
-                ))}
-              </View>
-            </View>
-
-            {/* Category */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
-                CATEGORY (OPTIONAL)
-              </Text>
-              <View
-                style={{
-                  flexDirection: "row",
-                  flexWrap: "wrap",
-                  gap: 8,
-                }}
-              >
-                {BUILD_CATEGORIES.map((cat) => {
-                  const selected = builds === cat.id;
-                  return (
-                    <Pressable
-                      key={cat.id}
-                      onPress={() =>
-                        setBuilds(selected ? undefined : cat.id)
-                      }
-                    >
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 6,
-                          backgroundColor: selected ? c.foreground : c.card,
-                          borderColor: selected ? c.foreground : c.border,
-                          borderWidth: StyleSheet.hairlineWidth,
-                          paddingVertical: 8,
-                          paddingHorizontal: 12,
-                          borderRadius: 999,
-                        }}
-                      >
-                        <BuildIcon
-                          category={cat.id}
-                          color={
-                            selected ? c.background : c.mutedForeground
-                          }
-                          size={12}
-                        />
-                        <Text
-                          style={{
-                            color: selected ? c.background : c.foreground,
-                            fontFamily: "Inter_500Medium",
-                            fontSize: 12,
-                            letterSpacing: 0.2,
-                          }}
-                        >
-                          {cat.label}
-                        </Text>
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Also happening */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
-                ALSO HAPPENING (OPTIONAL)
-              </Text>
-              <View
-                style={{
-                  flexDirection: "row",
-                  flexWrap: "wrap",
-                  gap: 8,
-                }}
-              >
-                {SECONDARY_LEAKAGE.map((s) => (
-                  <Chip
-                    key={s}
-                    small
-                    label={s}
-                    selected={secondary === s}
-                    onPress={() =>
-                      setSecondary(secondary === s ? undefined : s)
-                    }
-                  />
-                ))}
-              </View>
-            </View>
-
-            {/* Energy */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
-                ENERGY (OPTIONAL)
-              </Text>
-              <View
-                style={[
-                  styles.surface,
-                  { backgroundColor: c.card, borderColor: c.border },
-                ]}
-              >
-                <EnergyDots
-                  value={energy}
-                  onChange={setEnergy}
-                  showLabel={false}
-                  size={20}
-                />
-              </View>
-            </View>
-
-            {/* Note */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
-                NOTE (OPTIONAL)
-              </Text>
-              <TextInput
-                value={note}
-                onChangeText={setNote}
-                placeholder="A line for later"
-                placeholderTextColor={c.mutedForeground}
-                multiline
-                style={{
-                  backgroundColor: c.card,
-                  borderRadius: 14,
-                  paddingHorizontal: 16,
-                  paddingVertical: 14,
-                  borderWidth: StyleSheet.hairlineWidth,
-                  borderColor: c.border,
-                  color: c.foreground,
+                  color: c.mutedForeground,
                   fontFamily: "Inter_400Regular",
                   fontSize: 14,
-                  minHeight: 64,
-                  textAlignVertical: "top",
                 }}
-              />
+              >
+                No block selected.
+              </Text>
             </View>
-          </KeyboardAwareScrollViewCompat>
+          ) : (
+            <KeyboardAwareScrollViewCompat
+              keyboardShouldPersistTaps="handled"
+              bottomOffset={20}
+              contentContainerStyle={{ paddingBottom: 20 + bottomPad }}
+            >
+              {/* When */}
+              <View style={styles.section}>
+                <Text
+                  style={[styles.sectionLabel, { color: c.mutedForeground }]}
+                >
+                  TIME BLOCK
+                </Text>
+                <View
+                  style={[
+                    styles.surface,
+                    { backgroundColor: c.card, borderColor: c.border },
+                  ]}
+                >
+                  <Text
+                    style={{
+                      color: c.foreground,
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 18,
+                      letterSpacing: -0.3,
+                    }}
+                  >
+                    {formatTime(block.startTime)} — {formatTime(block.endTime)}
+                  </Text>
+                  <Text
+                    style={{
+                      color: isMissed ? c.primary : c.mutedForeground,
+                      fontFamily: "Inter_400Regular",
+                      fontSize: 12,
+                      marginTop: 4,
+                    }}
+                  >
+                    {isMissed
+                      ? "Missed — fill from memory"
+                      : isCurrent
+                        ? "Currently active"
+                        : "Scheduled"}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Primary activity */}
+              <View style={styles.section}>
+                <Text
+                  style={[styles.sectionLabel, { color: c.mutedForeground }]}
+                >
+                  WHAT WERE YOU DOING?
+                </Text>
+                <TextInput
+                  value={primary}
+                  onChangeText={setPrimary}
+                  placeholder="In your own words…"
+                  placeholderTextColor={c.mutedForeground}
+                  style={{
+                    backgroundColor: c.card,
+                    borderRadius: 14,
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: c.border,
+                    color: c.foreground,
+                    fontFamily: "Inter_500Medium",
+                    fontSize: 15,
+                  }}
+                  returnKeyType="done"
+                  autoFocus={!primary}
+                />
+                {primarySuggestions.length > 0 ? (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      flexWrap: "wrap",
+                      gap: 8,
+                      marginTop: 12,
+                    }}
+                  >
+                    {primarySuggestions.map((s) => (
+                      <Chip
+                        key={s}
+                        small
+                        label={s}
+                        selected={primary.toLowerCase() === s.toLowerCase()}
+                        onPress={() => setPrimary(s)}
+                      />
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+
+              {/* Secondary */}
+              <View style={styles.section}>
+                <Text
+                  style={[styles.sectionLabel, { color: c.mutedForeground }]}
+                >
+                  AND ALONGSIDE? (OPTIONAL)
+                </Text>
+                <TextInput
+                  value={secondary}
+                  onChangeText={setSecondary}
+                  placeholder="Phone, music, conversation…"
+                  placeholderTextColor={c.mutedForeground}
+                  style={{
+                    backgroundColor: c.card,
+                    borderRadius: 14,
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: c.border,
+                    color: c.foreground,
+                    fontFamily: "Inter_400Regular",
+                    fontSize: 14,
+                  }}
+                  returnKeyType="done"
+                />
+                {secondarySuggestions.length > 0 ? (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      flexWrap: "wrap",
+                      gap: 8,
+                      marginTop: 10,
+                    }}
+                  >
+                    {secondarySuggestions.map((s) => (
+                      <Chip
+                        key={s}
+                        small
+                        label={s}
+                        selected={secondary.toLowerCase() === s.toLowerCase()}
+                        onPress={() =>
+                          setSecondary(
+                            secondary.toLowerCase() === s.toLowerCase()
+                              ? ""
+                              : s,
+                          )
+                        }
+                      />
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+
+              {/* Energy */}
+              <View style={styles.section}>
+                <Text
+                  style={[styles.sectionLabel, { color: c.mutedForeground }]}
+                >
+                  ENERGY (OPTIONAL)
+                </Text>
+                <View
+                  style={[
+                    styles.surface,
+                    { backgroundColor: c.card, borderColor: c.border },
+                  ]}
+                >
+                  <EnergyDots
+                    value={energy}
+                    onChange={setEnergy}
+                    showLabel={false}
+                    size={20}
+                  />
+                </View>
+              </View>
+
+              {/* Note */}
+              <View style={styles.section}>
+                <Text
+                  style={[styles.sectionLabel, { color: c.mutedForeground }]}
+                >
+                  NOTE (OPTIONAL)
+                </Text>
+                <TextInput
+                  value={note}
+                  onChangeText={setNote}
+                  placeholder="A line for later"
+                  placeholderTextColor={c.mutedForeground}
+                  multiline
+                  style={{
+                    backgroundColor: c.card,
+                    borderRadius: 14,
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: c.border,
+                    color: c.foreground,
+                    fontFamily: "Inter_400Regular",
+                    fontSize: 14,
+                    minHeight: 64,
+                    textAlignVertical: "top",
+                  }}
+                />
+              </View>
+            </KeyboardAwareScrollViewCompat>
+          )}
         </View>
       </View>
     </Modal>

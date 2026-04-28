@@ -1,45 +1,41 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
-import {
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyState } from "@/components/EmptyState";
-import { GapItem } from "@/components/GapItem";
 import { Header } from "@/components/Header";
 import { QuickLogSheet } from "@/components/QuickLogSheet";
 import { ReflectionSheet } from "@/components/ReflectionSheet";
+import { TimelineBlockView } from "@/components/TimelineBlockView";
 import { useBlocks } from "@/contexts/BlocksContext";
 import { useColors } from "@/hooks/useColors";
-import { findGaps } from "@/lib/insights";
-import { dateKey, endOfDay, startOfDay, todayLabel } from "@/lib/time";
+import { dateKey, todayLabel } from "@/lib/time";
+import type { ScheduledBlock } from "@/lib/types";
 
 export default function ReflectScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const { blocks, addBlock, addReflection, reflectionForDate } = useBlocks();
+  const {
+    todayBlocks,
+    missedBlocks,
+    addReflection,
+    reflectionForDate,
+  } = useBlocks();
 
   const now = Date.now();
-  const dayStart = startOfDay(now);
-  const dayEnd = endOfDay(now);
   const today = dateKey(now);
   const reflection = reflectionForDate(today);
 
-  const gaps = useMemo(
-    () => findGaps(blocks, dayStart, dayEnd),
-    [blocks, dayStart, dayEnd],
-  );
-
+  const [logBlock, setLogBlock] = useState<ScheduledBlock | null>(null);
   const [logOpen, setLogOpen] = useState(false);
-  const [logRange, setLogRange] = useState<{ start: number; end: number } | null>(null);
   const [reflectOpen, setReflectOpen] = useState(false);
+
+  const loggedToday = useMemo(
+    () => todayBlocks.filter((b) => b.status === "logged"),
+    [todayBlocks],
+  );
 
   const topPad = isWeb ? 67 : insets.top + 8;
 
@@ -174,7 +170,7 @@ export default function ReflectScreen() {
           </View>
         </Pressable>
 
-        {/* Gap recovery */}
+        {/* Missed blocks */}
         <View style={{ marginTop: 32 }}>
           <View
             style={{
@@ -194,7 +190,7 @@ export default function ReflectScreen() {
                 textTransform: "uppercase",
               }}
             >
-              Untracked stretches
+              Missed blocks
             </Text>
             <Text
               style={{
@@ -203,15 +199,16 @@ export default function ReflectScreen() {
                 fontSize: 12,
               }}
             >
-              {gaps.length} {gaps.length === 1 ? "gap" : "gaps"}
+              {missedBlocks.length}{" "}
+              {missedBlocks.length === 1 ? "block" : "blocks"}
             </Text>
           </View>
 
-          {gaps.length === 0 ? (
+          {missedBlocks.length === 0 ? (
             <EmptyState
               icon="check"
-              title="The day is fully logged"
-              body="No stretches longer than thirty minutes are missing."
+              title="The day is fully captured"
+              body={`${loggedToday.length} of your blocks have been logged.`}
             />
           ) : (
             <>
@@ -225,16 +222,16 @@ export default function ReflectScreen() {
                   lineHeight: 19,
                 }}
               >
-                Tap a gap to fill it. A rough estimate is fine — memory fades
-                fast.
+                Tap a block to fill it. A rough estimate is fine — memory
+                fades fast.
               </Text>
-              {gaps.map((g) => (
-                <GapItem
-                  key={`${g.start}-${g.end}`}
-                  start={g.start}
-                  end={g.end}
+              {missedBlocks.map((b, i) => (
+                <TimelineBlockView
+                  key={b.id}
+                  block={b}
+                  isLast={i === missedBlocks.length - 1}
                   onPress={() => {
-                    setLogRange({ start: g.start, end: g.end });
+                    setLogBlock(b);
                     setLogOpen(true);
                   }}
                 />
@@ -246,18 +243,10 @@ export default function ReflectScreen() {
 
       <QuickLogSheet
         visible={logOpen}
-        initialStart={logRange?.start}
-        initialEnd={logRange?.end}
-        isReconstructed
-        title="Fill this stretch"
+        block={logBlock}
         onClose={() => {
           setLogOpen(false);
-          setLogRange(null);
-        }}
-        onSave={async (b) => {
-          await addBlock(b);
-          setLogOpen(false);
-          setLogRange(null);
+          setLogBlock(null);
         }}
       />
 

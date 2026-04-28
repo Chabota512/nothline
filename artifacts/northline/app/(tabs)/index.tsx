@@ -1,6 +1,15 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useMemo, useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import * as Notifications from "expo-notifications";
+import { useRouter } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyState } from "@/components/EmptyState";
@@ -12,79 +21,123 @@ import { TimelineBlockView } from "@/components/TimelineBlockView";
 import { useBlocks } from "@/contexts/BlocksContext";
 import { useColors } from "@/hooks/useColors";
 import {
-  DAY,
-  HOUR,
-  MINUTE,
-  dateKey,
-  endOfDay,
   formatDuration,
   formatTime,
   greeting,
-  startOfDay,
   todayLabel,
 } from "@/lib/time";
-import type { TimeBlock } from "@/lib/types";
+import type { ScheduledBlock } from "@/lib/types";
 
 export default function TodayScreen() {
   const c = useColors();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const { blocks, addBlock } = useBlocks();
+  const { todayBlocks, currentBlock, missedBlocks } = useBlocks();
+  const [logBlock, setLogBlock] = useState<ScheduledBlock | null>(null);
   const [logOpen, setLogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const now = Date.now();
-  const dayStart = startOfDay(now);
-  const dayEnd = endOfDay(now);
 
-  const todayBlocks = useMemo(
-    () =>
-      blocks.filter((b) => b.endTime > dayStart && b.startTime < dayEnd),
-    [blocks, dayStart, dayEnd],
+  const loggedToday = useMemo(
+    () => todayBlocks.filter((b) => b.status === "logged"),
+    [todayBlocks],
   );
-
-  const lastLogged = useMemo<TimeBlock | null>(() => {
-    if (blocks.length === 0) return null;
-    return blocks.reduce<TimeBlock>(
-      (a, b) => (a.endTime > b.endTime ? a : b),
-      blocks[0],
-    );
-  }, [blocks]);
-
-  const totalToday = todayBlocks.reduce(
+  const totalLogged = loggedToday.reduce(
     (s, b) => s + (b.endTime - b.startTime),
     0,
   );
 
-  const activeDays = useMemo(() => {
-    const set = new Set<string>();
-    for (const b of blocks) set.add(dateKey(b.startTime));
-    return set.size;
-  }, [blocks]);
+  const openLog = (block: ScheduledBlock | null): void => {
+    if (!block) return;
+    setLogBlock(block);
+    setLogOpen(true);
+  };
 
-  const prompt = useMemo(
-    () => choosePrompt({ now, lastLogged, activeDays }),
-    [now, lastLogged, activeDays],
-  );
+  const handleFabPress = useCallback((): void => {
+    // Default the FAB to the current block, or fall back to the most
+    // recent missed block if there's nothing active right now.
+    if (currentBlock) {
+      setLogBlock(currentBlock);
+      setLogOpen(true);
+      return;
+    }
+    if (missedBlocks.length > 0) {
+      setLogBlock(missedBlocks[missedBlocks.length - 1]);
+      setLogOpen(true);
+      return;
+    }
+    // Otherwise, log the next pending block.
+    const next = todayBlocks.find((b) => b.status === "pending");
+    if (next) {
+      setLogBlock(next);
+      setLogOpen(true);
+    }
+  }, [currentBlock, missedBlocks, todayBlocks]);
+
+  // Phase 3: tapping a notification opens QuickLog for the current block.
+  // We track the last-handled response id so the same tap doesn't re-open
+  // the sheet on every re-render.
+  const handledResponseRef = useRef<string | null>(null);
+  const lastResponse = Notifications.useLastNotificationResponse();
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    if (!lastResponse) return;
+    const id = lastResponse.notification.request.identifier;
+    if (handledResponseRef.current === id) return;
+    handledResponseRef.current = id;
+    handleFabPress();
+  }, [lastResponse, handleFabPress]);
 
   const topPad = isWeb ? 67 : insets.top + 8;
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      <Pressable
-        onPress={() => setSettingsOpen(true)}
-        hitSlop={10}
-        accessibilityLabel="Settings"
+      {/* Top-right action cluster: Audits, Settings */}
+      <View
         style={{
           position: "absolute",
           top: topPad + 4,
-          right: 18,
+          right: 12,
           zIndex: 10,
-          padding: 8,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 4,
         }}
       >
-        <Feather name="settings" size={18} color={c.mutedForeground} />
-      </Pressable>
+        <Pressable
+          onPress={() => router.push("/audit")}
+          hitSlop={10}
+          accessibilityLabel="Audits"
+          style={({ pressed }) => ({
+            paddingHorizontal: 10,
+            paddingVertical: 6,
+            borderRadius: 999,
+            opacity: pressed ? 0.55 : 1,
+          })}
+        >
+          <Text
+            style={{
+              color: c.mutedForeground,
+              fontFamily: "Inter_500Medium",
+              fontSize: 11,
+              letterSpacing: 1.4,
+              textTransform: "uppercase",
+            }}
+          >
+            Audits
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setSettingsOpen(true)}
+          hitSlop={10}
+          accessibilityLabel="Settings"
+          style={{ padding: 8 }}
+        >
+          <Feather name="settings" size={18} color={c.mutedForeground} />
+        </Pressable>
+      </View>
 
       <ScrollView
         contentContainerStyle={{
@@ -95,7 +148,7 @@ export default function TodayScreen() {
       >
         <Header kicker={greeting(now)} title={todayLabel(now)} />
 
-        {/* Audit card */}
+        {/* Now / current block card */}
         <View
           style={[
             styles.nowCard,
@@ -124,14 +177,49 @@ export default function TodayScreen() {
             </Text>
           </View>
 
-          <AuditHeadline
-            lastLogged={lastLogged}
-            now={now}
-            color={c.foreground}
-            mutedColor={c.mutedForeground}
-          />
+          {currentBlock ? (
+            <View>
+              <Text
+                style={{
+                  color: c.foreground,
+                  fontFamily: "Inter_600SemiBold",
+                  fontSize: 22,
+                  lineHeight: 28,
+                  letterSpacing: -0.4,
+                }}
+              >
+                {formatTime(currentBlock.startTime)} —{" "}
+                {formatTime(currentBlock.endTime)}
+              </Text>
+              <Text
+                style={{
+                  color: c.mutedForeground,
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 13,
+                  marginTop: 6,
+                  lineHeight: 19,
+                }}
+              >
+                {currentBlock.status === "logged"
+                  ? `Logged: ${currentBlock.primaryActivity}`
+                  : "What are you doing right now?"}
+              </Text>
+            </View>
+          ) : (
+            <Text
+              style={{
+                color: c.foreground,
+                fontFamily: "Inter_600SemiBold",
+                fontSize: 22,
+                lineHeight: 28,
+                letterSpacing: -0.4,
+              }}
+            >
+              Outside the day
+            </Text>
+          )}
 
-          {prompt ? (
+          {missedBlocks.length > 0 ? (
             <Text
               style={{
                 color: c.mutedForeground,
@@ -141,20 +229,22 @@ export default function TodayScreen() {
                 lineHeight: 19,
               }}
             >
-              {prompt}
+              {missedBlocks.length}{" "}
+              {missedBlocks.length === 1 ? "block" : "blocks"} unlogged. Tap
+              any to fill from memory.
             </Text>
           ) : null}
 
           <View style={styles.statsRow}>
             <Stat
               label="Logged today"
-              value={formatDuration(totalToday)}
+              value={formatDuration(totalLogged)}
               color={c.foreground}
               borderColor={c.border}
             />
             <Stat
-              label="Entries"
-              value={String(todayBlocks.length)}
+              label="Captured"
+              value={`${loggedToday.length}/${todayBlocks.filter((b) => b.status !== "pending").length || 0}`}
               color={c.foreground}
               borderColor={c.border}
             />
@@ -180,8 +270,8 @@ export default function TodayScreen() {
           {todayBlocks.length === 0 ? (
             <EmptyState
               icon="sunrise"
-              title="No entries yet"
-              body="Log a stretch of time to begin the day's record."
+              title="No blocks scheduled"
+              body="Open settings to set your day's start and end and your reminder interval."
             />
           ) : (
             todayBlocks.map((b, i) => (
@@ -189,54 +279,26 @@ export default function TodayScreen() {
                 key={b.id}
                 block={b}
                 isLast={i === todayBlocks.length - 1}
+                onPress={
+                  b.status === "missed" || b.status === "logged" || b.id === currentBlock?.id
+                    ? () => openLog(b)
+                    : undefined
+                }
               />
             ))
           )}
         </View>
-
-        {todayBlocks.length > 0 ? (
-          <View
-            style={{
-              marginHorizontal: 24,
-              marginTop: 16,
-              padding: 18,
-              borderRadius: 14,
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: c.border,
-              backgroundColor: c.card,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-            }}
-          >
-            <Feather name="moon" size={18} color={c.mutedForeground} />
-            <Text
-              style={{
-                flex: 1,
-                color: c.foreground,
-                fontFamily: "Inter_400Regular",
-                fontSize: 13,
-                lineHeight: 19,
-              }}
-            >
-              When the day winds down, head to{" "}
-              <Text style={{ fontFamily: "Inter_600SemiBold" }}>Reflect</Text>{" "}
-              to fill any gaps and add a note.
-            </Text>
-          </View>
-        ) : null}
       </ScrollView>
 
-      <FloatingLogButton onPress={() => setLogOpen(true)} />
+      <FloatingLogButton onPress={handleFabPress} />
 
       <QuickLogSheet
         visible={logOpen}
-        onClose={() => setLogOpen(false)}
-        onSave={async (b) => {
-          await addBlock(b);
+        block={logBlock}
+        onClose={() => {
           setLogOpen(false);
+          setLogBlock(null);
         }}
-        title="Log a moment"
       />
 
       <SettingsSheet
@@ -245,97 +307,6 @@ export default function TodayScreen() {
       />
     </View>
   );
-}
-
-function AuditHeadline({
-  lastLogged,
-  now,
-  color,
-  mutedColor,
-}: {
-  lastLogged: TimeBlock | null;
-  now: number;
-  color: string;
-  mutedColor: string;
-}) {
-  if (!lastLogged) {
-    return (
-      <Text
-        style={{
-          color,
-          fontFamily: "Inter_600SemiBold",
-          fontSize: 22,
-          lineHeight: 28,
-          letterSpacing: -0.4,
-        }}
-      >
-        Nothing logged yet.
-      </Text>
-    );
-  }
-
-  const since = now - lastLogged.endTime;
-  const sinceLabel =
-    since < MINUTE
-      ? "just now"
-      : since < HOUR
-        ? `${Math.round(since / MINUTE)} min`
-        : `${formatDuration(since)}`;
-
-  return (
-    <View>
-      <Text
-        style={{
-          color,
-          fontFamily: "Inter_600SemiBold",
-          fontSize: 22,
-          lineHeight: 28,
-          letterSpacing: -0.4,
-        }}
-      >
-        {sinceLabel}
-        <Text style={{ color: mutedColor }}> since last entry</Text>
-      </Text>
-      <Text
-        style={{
-          color: mutedColor,
-          fontFamily: "Inter_400Regular",
-          fontSize: 13,
-          marginTop: 6,
-          lineHeight: 19,
-        }}
-      >
-        {formatTime(lastLogged.endTime)} — {lastLogged.primaryActivity}
-      </Text>
-    </View>
-  );
-}
-
-function choosePrompt({
-  now,
-  lastLogged,
-  activeDays,
-}: {
-  now: number;
-  lastLogged: TimeBlock | null;
-  activeDays: number;
-}): string | null {
-  if (!lastLogged) return "Log a stretch of time to begin.";
-
-  const since = now - lastLogged.endTime;
-
-  if (since > 3 * HOUR) return "Where did the last few hours go?";
-  if (since > HOUR) return "What's filled the time since?";
-  if (since > 30 * MINUTE) return "What just happened?";
-
-  // Recent log. After at least one full day of use, occasionally let the
-  // deeper question surface — quietly, never as the headline.
-  if (activeDays >= 1) {
-    const dayIndex = Math.floor(now / DAY);
-    if (dayIndex % 5 === 0) return "Quietly — what is this hour building?";
-  }
-
-  return null;
 }
 
 function Stat({
