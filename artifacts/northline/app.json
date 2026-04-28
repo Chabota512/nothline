@@ -14,9 +14,12 @@
       "backgroundColor": "#14110D"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.anonymous.northline"
     },
-    "android": {},
+    "android": {
+      "package": "com.anonymous.northline"
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
