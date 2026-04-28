@@ -98,3 +98,45 @@ export async function sendTestNotification(): Promise<void> {
     },
   });
 }
+
+export async function scheduleBlockNotifications(
+  blocks: Array<{ id: string; primaryActivity?: string; endTime: number }>,
+): Promise<void> {
+  if (Platform.OS === "web") return;
+  
+  try {
+    await ensureAndroidChannel();
+    const now = Date.now();
+    const futureBlocks = blocks.filter((b) => b.endTime > now);
+
+    // Schedule notification for each future block at its end time
+    for (const block of futureBlocks) {
+      const delaySeconds = Math.max(0, Math.floor((block.endTime - now) / 1000));
+      
+      // Only schedule if the notification is in the near future (skip very far out ones)
+      if (delaySeconds > 86400) continue;
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Northline",
+          body: "Time block ending. What were you doing?",
+          sound: "default",
+          data: { blockId: block.id },
+          ...(Platform.OS === "android"
+            ? { channelId: REMINDER_CHANNEL }
+            : {}),
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: delaySeconds,
+          repeats: false,
+          ...(Platform.OS === "android"
+            ? { channelId: REMINDER_CHANNEL }
+            : {}),
+        },
+      });
+    }
+  } catch (error) {
+    console.error("Failed to schedule block notifications:", error);
+  }
+}

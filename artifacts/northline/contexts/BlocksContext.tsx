@@ -14,6 +14,7 @@ import {
   generateBlocksForDay,
   mergeStoredWithSchedule,
 } from "@/lib/schedule";
+import * as notifications from "@/lib/notifications";
 import * as storage from "@/lib/storage";
 import type { Reflection, ScheduledBlock } from "@/lib/types";
 
@@ -83,6 +84,13 @@ export function BlocksProvider({ children }: { children: React.ReactNode }) {
     () => mergeStoredWithSchedule(todaySchedule, storedBlocks, now),
     [todaySchedule, storedBlocks, now],
   );
+
+  // Schedule block-end notifications whenever today's blocks change.
+  useEffect(() => {
+    notifications.scheduleBlockNotifications(todayBlocks).catch((e) => {
+      console.error("Error scheduling block notifications:", e);
+    });
+  }, [todayBlocks]);
 
   const currentBlock = useMemo(
     () => findCurrentBlock(todayBlocks, now),
