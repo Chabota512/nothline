@@ -97,7 +97,7 @@ export default function RootLayout() {
             <KeyboardProvider>
               <SettingsProvider>
                 <BlocksProvider>
-                  <StatusBar style="auto" />
+                  <StatusBar hidden />
                   <OnboardingGate>
                     <RootLayoutNav />
                   </OnboardingGate>

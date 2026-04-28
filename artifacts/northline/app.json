@@ -18,7 +18,22 @@
       "bundleIdentifier": "com.anonymous.northline"
     },
     "android": {
-      "package": "com.anonymous.northline"
+      "package": "com.anonymous.northline",
+      "navigationBar": {
+        "visible": "sticky-immersive",
+        "barStyle": "light-content",
+        "backgroundColor": "#14110D"
+      }
+    },
+    "androidStatusBar": {
+      "hidden": true,
+      "translucent": true,
+      "backgroundColor": "#00000000"
+    },
+    "androidNavigationBar": {
+      "visible": "sticky-immersive",
+      "barStyle": "light-content",
+      "backgroundColor": "#14110D"
     },
     "web": {
       "favicon": "./assets/images/icon.png"
